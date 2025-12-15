@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Detección</title>
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+</head>
+<body>
+    <h2>Test Simple de Detección</h2>
+    <video id="video" width="400" autoplay></video>
+    <p id="status">Cargando...</p>
+    
+    <script>
+    const video = document.getElementById('video');
+    const status = document.getElementById('status');
+    
+    async function start() {
+        // Cargar modelos
+        status.textContent = "Cargando modelos...";
+        await faceapi.nets.tinyFaceDetector.loadFromUri('/models');
+        status.textContent = "Modelos cargados";
+        
+        // Iniciar cámara
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+        
+        // Detectar cada segundo
+        setInterval(async () => {
+            const detection = await faceapi.detectSingleFace(video, 
+                new faceapi.TinyFaceDetectorOptions());
+            
+            if (detection) {
+                status.textContent = `✅ ROSTRO DETECTADO! Score: ${detection.score.toFixed(2)}`;
+                status.style.color = "green";
+            } else {
+                status.textContent = "❌ No se detectó rostro";
+                status.style.color = "red";
+            }
+        }, 1000);
+    }
+    
+    start().catch(err => {
+        status.textContent = "ERROR: " + err.message;
+        status.style.color = "red";
+    });
+    </script>
+</body>
+</html>

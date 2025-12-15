@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Diagnóstico Modelos</title>
+</head>
+<body style="font-family: Arial; padding: 20px;">
+    <h2>🔍 Diagnóstico de Modelos face-api.js</h2>
+    
+    <div id="resultados" style="margin-top: 20px; padding: 15px; border: 1px solid #ccc; border-radius: 5px;">
+        <p>Ejecutando pruebas...</p>
+    </div>
+    
+    <script>
+    const resultados = document.getElementById('resultados');
+    
+    async function testModelos() {
+        // 1. Verificar que los archivos existen
+        const archivos = [
+            'tiny_face_detector_model-weights_manifest.json',
+            'tiny_face_detector_model-shard1',
+            'face_landmark_68_model-weights_manifest.json', 
+            'face_landmark_68_model-shard1',
+            'face_recognition_model-weights_manifest.json',
+            'face_recognition_model-shard1'
+        ];
+        
+        resultados.innerHTML = '<h3>📁 Verificando archivos en /models/</h3>';
+        
+        for (const archivo of archivos) {
+            try {
+                const response = await fetch(`/models/${archivo}`);
+                const tamaño = response.headers.get('content-length') || '?';
+                
+                resultados.innerHTML += `
+                    <div style="margin: 5px 0; padding: 8px; background: ${response.ok ? '#d4edda' : '#f8d7da'}; border-radius: 4px;">
+                        ${response.ok ? '✅' : '❌'} ${archivo} 
+                        - ${response.ok ? 'OK' : 'NO ENCONTRADO (404)'}
+                        ${response.ok ? `(${Math.round(tamaño/1024)} KB)` : ''}
+                    </div>
+                `;
+            } catch (error) {
+                resultados.innerHTML += `
+                    <div style="margin: 5px 0; padding: 8px; background: #f8d7da; border-radius: 4px;">
+                        ❌ ${archivo} - ERROR: ${error.message}
+                    </div>
+                `;
+            }
+        }
+        
+        // 2. Verificar contenido de manifest
+        resultados.innerHTML += '<h3>📄 Contenido del manifest</h3>';
+        
+        try {
+            const response = await fetch('/models/tiny_face_detector_model-weights_manifest.json');
+            const manifest = await response.json();
+            
+            resultados.innerHTML += `
+                <div style="background: #e8f4fd; padding: 10px; border-radius: 4px; font-family: monospace;">
+                    ${JSON.stringify(manifest, null, 2)}
+                </div>
+            `;
+            
+            // Verificar que los paths en el manifest existen
+            if (manifest[0] && manifest[0].paths) {
+                resultados.innerHTML += '<h4>🔗 Rutas en el manifest:</h4>';
+                for (const path of manifest[0].paths) {
+                    try {
+                        const pathResponse = await fetch(`/models/${path}`);
+                        resultados.innerHTML += `
+                            <div style="margin: 3px 0; padding: 5px; background: ${pathResponse.ok ? '#d4edda' : '#f8d7da'}; border-radius: 4px;">
+                                ${pathResponse.ok ? '✅' : '❌'} ${path}
+                            </div>
+                        `;
+                    } catch (e) {
+                        resultados.innerHTML += `
+                            <div style="margin: 3px 0; padding: 5px; background: #f8d7da; border-radius: 4px;">
+                                ❌ ${path} - ERROR
+                            </div>
+                        `;
+                    }
+                }
+            }
+        } catch (error) {
+            resultados.innerHTML += `
+                <div style="background: #f8d7da; padding: 10px; border-radius: 4px;">
+                    ❌ ERROR leyendo manifest: ${error.message}
+                </div>
+            `;
+        }
+        
+        // 3. Verificar tamaño de shard1
+        resultados.innerHTML += '<h3>💾 Tamaño de los archivos .shard1</h3>';
+        
+        const shardFiles = [
+            'tiny_face_detector_model-shard1',
+            'face_landmark_68_model-shard1',
+            'face_recognition_model-shard1'
+        ];
+        
+        for (const shard of shardFiles) {
+            try {
+                const response = await fetch(`/models/${shard}`);
+                const blob = await response.blob();
+                const tamañoKB = Math.round(blob.size / 1024);
+                
+                let estado = '⚠️';
+                if (tamañoKB > 100) estado = '✅'; // Archivos deben ser >100KB
+                
+                resultados.innerHTML += `
+                    <div style="margin: 5px 0; padding: 8px; background: ${tamañoKB > 100 ? '#d4edda' : '#fff3cd'}; border-radius: 4px;">
+                        ${estado} ${shard}: ${tamañoKB} KB
+                        ${tamañoKB < 100 ? ' (¿Archivo corrupto o vacío?)' : ''}
+                    </div>
+                `;
+            } catch (error) {
+                resultados.innerHTML += `
+                    <div style="margin: 5px 0; padding: 8px; background: #f8d7da; border-radius: 4px;">
+                        ❌ ${shard}: ERROR - ${error.message}
+                    </div>
+                `;
+            }
+        }
+        
+        resultados.innerHTML += '<h3>🎯 Resultado final:</h3>';
+        
+        // Resumen
+        const todosArchivos = document.querySelectorAll('#resultados div').length;
+        const archivosOK = document.querySelectorAll('#resultados div[style*="background: #d4edda"]').length;
+        
+        if (archivosOK === archivos.length) {
+            resultados.innerHTML += `
+                <div style="background: #d4edda; padding: 15px; border-radius: 4px; font-size: 18px;">
+                    ✅ TODOS los archivos están CORRECTOS<br>
+                    El problema está en el código JavaScript
+                </div>
+            `;
+        } else {
+            resultados.innerHTML += `
+                <div style="background: #f8d7da; padding: 15px; border-radius: 4px; font-size: 18px;">
+                    ❌ FALTAN ARCHIVOS o están CORRUPTOS<br>
+                    Descarga los modelos nuevamente
+                </div>
+            `;
+        }
+    }
+    
+    // Ejecutar diagnóstico
+    testModelos();
+    </script>
+</body>
+</html>
